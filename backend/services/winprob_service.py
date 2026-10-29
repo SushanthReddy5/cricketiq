@@ -1,21 +1,25 @@
-import pandas as pd
 import numpy as np
-import os
+from services.data_loader import get_master
 
-MODELS_DIR = os.path.join(os.path.dirname(__file__), "../models")
-master = pd.read_parquet(os.path.join(MODELS_DIR, "master.parquet"))
+_inn2 = None
+_chase_results = None
 
-inn2       = master[master["innings"] == 2].copy()
-inn2_teams = inn2.groupby("match_id")["batting_team"].first().reset_index()
-inn2_teams.columns = ["match_id", "chasing_team"]
-match_outcomes = master.drop_duplicates("match_id")[["match_id","winner"]].copy()
-chase_results  = inn2_teams.merge(match_outcomes, on="match_id")
-chase_results["chase_won"] = (chase_results["chasing_team"] == chase_results["winner"]).astype(int)
+def _get_chase_data():
+    global _inn2, _chase_results
+    if _inn2 is None or _chase_results is None:
+        master = get_master()
+        _inn2 = master[master["innings"] == 2]
+        inn2_teams = _inn2.groupby("match_id")["batting_team"].first().reset_index()
+        inn2_teams.columns = ["match_id", "chasing_team"]
+        match_outcomes = master.drop_duplicates("match_id")[["match_id", "winner"]]
+        chase_results = inn2_teams.merge(match_outcomes, on="match_id")
+        chase_results["chase_won"] = (chase_results["chasing_team"] == chase_results["winner"]).astype("int8")
 
-inn1_targets = master[master["innings"] == 1].groupby("match_id")["total_runs"].sum().reset_index()
-inn1_targets.columns = ["match_id", "target"]
-inn1_targets["target"] += 1
-chase_results = chase_results.merge(inn1_targets, on="match_id", how="left")
+        inn1_targets = master[master["innings"] == 1].groupby("match_id")["total_runs"].sum().reset_index()
+        inn1_targets.columns = ["match_id", "target"]
+        inn1_targets["target"] = (inn1_targets["target"] + 1).astype("int16")
+        _chase_results = chase_results.merge(inn1_targets, on="match_id", how="left")
+    return _inn2, _chase_results
 
 def calculate_win_probability(target, current_score, wickets_fallen, overs_completed):
     """overs_completed is a float like 6.0 or 10.3 (overs.balls)."""
@@ -48,6 +52,7 @@ def calculate_win_probability(target, current_score, wickets_fallen, overs_compl
     crr = current_score / overs_done if overs_done > 0 else 0
 
     # Historical similarity lookup using exact cumulative match state up to overs_completed
+    inn2, chase_results = _get_chase_data()
     balls_mask = (inn2["over"] < overs_int) | ((inn2["over"] == overs_int) & (inn2["ball_in_over"] <= balls_part))
     over_data  = inn2[balls_mask]
     hist_prob  = None

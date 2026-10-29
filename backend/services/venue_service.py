@@ -1,11 +1,10 @@
-import pandas as pd
-import os
+from services.data_loader import get_master
 
-MODELS_DIR = os.path.join(os.path.dirname(__file__), "../models")
-master = pd.read_parquet(os.path.join(MODELS_DIR, "master.parquet"))
+_all_venues = None
 
 def get_venue_stats(venue: str):
-    df = master[master["venue"] == venue].copy()
+    master = get_master()
+    df = master[master["venue"] == venue]
     if len(df) == 0:
         return {"error": "Venue not found"}
 
@@ -61,4 +60,8 @@ def get_venue_stats(venue: str):
     }
 
 def get_all_venues():
-    return sorted(master["venue"].unique().tolist())
+    global _all_venues
+    if _all_venues is None:
+        master = get_master()
+        _all_venues = sorted(master["venue"].unique().tolist())
+    return _all_venues

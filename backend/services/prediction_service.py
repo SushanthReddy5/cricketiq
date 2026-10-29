@@ -15,7 +15,6 @@ ALL_FEATURES    = meta["all_features"]
 GROUP_IMP       = meta["group_importances"]
 FEAT_IMP        = meta["importances"]
 
-master        = pd.read_parquet(os.path.join(MODELS_DIR, "master.parquet"))
 features_df   = pd.read_parquet(os.path.join(MODELS_DIR, "features.parquet"))
 venue_pitch   = pd.read_parquet(os.path.join(MODELS_DIR, "venue_pitch.parquet"))
 batter_match  = pd.read_parquet(os.path.join(MODELS_DIR, "batter_match.parquet"))
@@ -23,7 +22,7 @@ bowler_match  = pd.read_parquet(os.path.join(MODELS_DIR, "bowler_match.parquet")
 
 match_meta = features_df[["match_id","date","season","team1","team2","venue","winner"]].copy()
 match_meta["date"] = pd.to_datetime(match_meta["date"])
-all_seasons = sorted(master["season"].unique())
+all_seasons = sorted(features_df["season"].unique())
 
 TEAM_ALIASES = {
     "Royal Challengers Bengaluru": ["Royal Challengers Bengaluru", "Royal Challengers Bangalore"],
@@ -173,7 +172,7 @@ def get_squad_strength(team, season, n_bat=5, n_bowl=3, window=10):
         batting_sr    = float(np.mean([s["sr"] for s in stats])) if stats else 120.0
         boundary_pct  = float(np.mean([s["boundary_pct"] for s in stats])) if stats else 25.0
 
-    team_match_ids = set(master[(master["team1"].isin(t_vars)) | (master["team2"].isin(t_vars))]["match_id"].unique())
+    team_match_ids = set(match_meta[(match_meta["team1"].isin(t_vars)) | (match_meta["team2"].isin(t_vars))]["match_id"].unique())
     bowl_cur = bowler_match[
         (bowler_match["match_id"].isin(team_match_ids)) &
         (~bowler_match["batting_team"].isin(t_vars)) &
@@ -288,7 +287,7 @@ def get_all_seasons():
     return list(reversed(all_seasons))
 
 def get_all_teams():
-    all_teams_list = sorted(set(master["team1"].dropna().unique().tolist() + master["team2"].dropna().unique().tolist()))
+    all_teams_list = sorted(set(match_meta["team1"].dropna().unique().tolist() + match_meta["team2"].dropna().unique().tolist()))
     return {
         "current_teams": CURRENT_TEAMS,
         "all_teams": all_teams_list

@@ -1,8 +1,4 @@
-import pandas as pd
-import os
-
-MODELS_DIR = os.path.join(os.path.dirname(__file__), "../models")
-master = pd.read_parquet(os.path.join(MODELS_DIR, "master.parquet"))
+from services.data_loader import get_master
 
 PHASES = {
     "powerplay": (0, 5),
@@ -11,6 +7,7 @@ PHASES = {
 }
 
 def get_phase_stats(player: str, role: str = "batter"):
+    master = get_master()
     result = {}
 
     for phase_name, (start, end) in PHASES.items():

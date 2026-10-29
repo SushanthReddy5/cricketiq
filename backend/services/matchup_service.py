@@ -1,14 +1,13 @@
-import pandas as pd
-import os
+from services.data_loader import get_master
 
-MODELS_DIR = os.path.join(os.path.dirname(__file__), "../models")
-master = pd.read_parquet(os.path.join(MODELS_DIR, "master.parquet"))
+_all_players = None
 
 def get_matchup(batter: str, bowler: str):
+    master = get_master()
     df = master[
         (master["striker"] == batter) &
         (master["bowler"] == bowler)
-    ].copy()
+    ]
 
     if len(df) == 0:
         return {"error": f"No matchup data found for {batter} vs {bowler}"}
@@ -37,7 +36,10 @@ def get_matchup(batter: str, bowler: str):
     }
 
 def get_all_players():
-    batters = master["striker"].dropna().unique().tolist()
-    bowlers = master["bowler"].dropna().unique().tolist()
-    all_players = sorted(set(batters + bowlers))
-    return all_players
+    global _all_players
+    if _all_players is None:
+        master = get_master()
+        batters = master["striker"].dropna().unique().tolist()
+        bowlers = master["bowler"].dropna().unique().tolist()
+        _all_players = sorted(set(batters + bowlers))
+    return _all_players

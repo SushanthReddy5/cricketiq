@@ -1,14 +1,7 @@
-import pandas as pd
-import os
-
-MODELS_DIR = os.path.join(os.path.dirname(__file__), "../models")
-master = pd.read_parquet(os.path.join(MODELS_DIR, "master.parquet"))
-match_info = master.drop_duplicates("match_id")[[
-    "match_id","venue","toss_winner","toss_decision","winner","team1","team2"
-]].copy()
-match_info = match_info[match_info["winner"] != "Unknown"]
+from services.data_loader import get_match_info
 
 def get_toss_analysis(venue: str = None):
+    match_info = get_match_info()
     df = match_info.copy()
     if venue and venue != "all":
         df = df[df["venue"] == venue]
@@ -44,7 +37,7 @@ def get_toss_analysis(venue: str = None):
     }
 
 def get_toss_by_venue():
-    venues = match_info["venue"].unique()
+    venues = get_match_info()["venue"].unique()
     result = []
     for v in venues:
         stats = get_toss_analysis(v)

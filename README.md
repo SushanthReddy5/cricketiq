@@ -65,3 +65,4 @@ The React app will be live at `http://localhost:3000`.
 3. **Output Directory**: `build`
 4. **Environment Variables**:
    - `REACT_APP_API_URL`: URL of your deployed backend (e.g. `https://your-cricketiq-api.onrender.com/api`)
+
