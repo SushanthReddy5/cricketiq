@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from 'recharts';
-import { getWinProb } from '../api';
+import { getWinProb, calculateLocalWinProb } from '../api';
 
 export default function WinProb() {
   const [form, setForm] = useState({ target: '180', current_score: '80', wickets_fallen: '2', overs_completed: '10.0' });
@@ -35,7 +35,7 @@ export default function WinProb() {
     setLoading(true);
     try {
       const r = await getWinProb(p);
-      const d = r.data;
+      const d = r.data || calculateLocalWinProb(p);
       setResult(d);
       setHistory(h => [...h, {
         over: p.overs_completed.toFixed(1),
@@ -43,7 +43,13 @@ export default function WinProb() {
         bowling: d.bowling_team_win_prob,
       }]);
     } catch {
-      setError('Calculation failed — ensure backend is running.');
+      const d = calculateLocalWinProb(p);
+      setResult(d);
+      setHistory(h => [...h, {
+        over: p.overs_completed.toFixed(1),
+        batting: d.batting_team_win_prob,
+        bowling: d.bowling_team_win_prob,
+      }]);
     }
     setLoading(false);
   };
@@ -123,6 +129,17 @@ export default function WinProb() {
 
       {result?.status === 'in_progress' && (
         <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 50,
+              background: result.is_fallback ? 'rgba(255, 215, 0, 0.12)' : 'rgba(0, 230, 118, 0.12)',
+              border: `1px solid ${result.is_fallback ? 'rgba(255, 215, 0, 0.3)' : 'rgba(0, 230, 118, 0.3)'}`,
+              color: result.is_fallback ? '#FFD700' : '#00E676'
+            }}>
+              {result.is_fallback ? '⚡ Calibrated Physics Engine' : '🏏 Live Historical Chase Engine'}
+            </span>
+          </div>
+
           {/* Win prob dual cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
             {[

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import { getVenues, getVenueStats } from '../api';
+import defaultVenues from '../data/venues.json';
+import defaultVenueStats from '../data/venue_stats.json';
 
 const CustomBarTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -16,19 +18,18 @@ const CustomBarTooltip = ({ active, payload, label }) => {
 };
 
 export default function VenueStats() {
-  const [venues, setVenues] = useState([]);
-  const [venue, setVenue] = useState('');
-  const [data, setData] = useState(null);
+  const [venues, setVenues] = useState(defaultVenues);
+  const [venue, setVenue] = useState(defaultVenues[0] || '');
+  const [data, setData] = useState(defaultVenueStats[defaultVenues[0]] || null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     getVenues().then(r => {
-      const vList = r.data.venues || [];
-      setVenues(vList);
+      const vList = r.data?.venues || [];
       if (vList.length > 0) {
-        load(vList[0]);
+        setVenues(vList);
       }
-    });
+    }).catch(() => {});
   }, []);
 
   const load = async v => {
@@ -37,9 +38,13 @@ export default function VenueStats() {
     setLoading(true);
     try {
       const r = await getVenueStats(v);
-      setData(r.data);
+      if (r.data && !r.data.error) {
+        setData(r.data);
+      } else {
+        setData(defaultVenueStats[v] || null);
+      }
     } catch {
-      setData(null);
+      setData(defaultVenueStats[v] || null);
     }
     setLoading(false);
   };

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts';
 import { getMatchup, getPlayers } from '../api';
 import PlayerSearch from './PlayerSearch';
+import defaultPlayers from '../data/players.json';
 
 export default function Matchup() {
-  const [players, setPlayers] = useState([]);
+  const [players, setPlayers] = useState(defaultPlayers);
   const [batter, setBatter] = useState('');
   const [bowler, setBowler] = useState('');
   const [data, setData] = useState(null);
@@ -12,7 +13,9 @@ export default function Matchup() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    getPlayers().then(r => setPlayers(r.data.players || []));
+    getPlayers().then(r => {
+      if (r.data?.players?.length) setPlayers(r.data.players);
+    }).catch(() => {});
   }, []);
 
   const submit = async () => {
@@ -23,7 +26,7 @@ export default function Matchup() {
       const r = await getMatchup(batter, bowler);
       setData(r.data);
     } catch {
-      setError('Failed to fetch matchup data');
+      setError('Failed to fetch matchup data — ensure backend is running or waking up.');
     }
     setLoading(false);
   };

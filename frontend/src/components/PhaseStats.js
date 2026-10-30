@@ -2,29 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getPhaseStats, getPlayers } from '../api';
 import PlayerSearch from './PlayerSearch';
+import defaultPlayers from '../data/players.json';
 
 const PC = { powerplay: '#00F2FE', middle: '#FFD700', death: '#FF1744' };
 const PL = { powerplay: 'Powerplay (Overs 1–6)', middle: 'Middle (Overs 7–15)', death: 'Death (Overs 16–20)' };
 
 export default function PhaseStats() {
-  const [players, setPlayers] = useState([]);
+  const [players, setPlayers] = useState(defaultPlayers);
   const [player, setPlayer] = useState('');
   const [role, setRole] = useState('batter');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    getPlayers().then(r => setPlayers(r.data.players || []));
+    getPlayers().then(r => {
+      if (r.data?.players?.length) setPlayers(r.data.players);
+    }).catch(() => {});
   }, []);
 
   const submit = async () => {
     if (!player) return;
     setLoading(true);
     setData(null);
+    setError('');
     try {
       const r = await getPhaseStats(player, role);
-      setData(r.data);
-    } catch {}
+      if (r.data?.error) {
+        setError(r.data.error);
+      } else {
+        setData(r.data);
+      }
+    } catch {
+      setError('Failed to fetch phase stats — ensure backend is running or waking up.');
+    }
     setLoading(false);
   };
 
@@ -60,6 +71,15 @@ export default function PhaseStats() {
         <div style={{ maxWidth: 440 }}>
           <PlayerSearch players={players} value={player} onChange={setPlayer} label="Player" placeholder={`Search ${role}...`} />
         </div>
+        {error && (
+          <div style={{
+            marginTop: 14, padding: '10px 16px', borderRadius: 10,
+            background: 'rgba(255, 23, 68, 0.1)', border: '1px solid rgba(255, 23, 68, 0.25)',
+            color: '#FF1744', fontSize: 13
+          }}>
+            {error}
+          </div>
+        )}
         <button className="btn-primary" onClick={submit} disabled={loading || !player} style={{ marginTop: 20 }}>
           {loading ? '⏳ Analyzing Phases...' : '⚡ Analyse Phases'}
         </button>

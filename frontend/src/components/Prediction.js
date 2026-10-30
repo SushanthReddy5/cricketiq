@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { predictWinner, getVenues, getSeasons, getTeams } from '../api';
+import defaultVenues from '../data/venues.json';
+import defaultSeasons from '../data/seasons.json';
 
 const TEAMS = [
   'Chennai Super Kings','Mumbai Indians','Royal Challengers Bengaluru',
@@ -45,9 +47,14 @@ const TooltipCustom = ({active,payload,label}) => {
 
 export default function Prediction() {
   const [teamList, setTeamList] = useState(TEAMS);
-  const [venues,  setVenues]  = useState([]);
-  const [seasons, setSeasons] = useState([]);
-  const [form, setForm] = useState({team1:'',team2:'',venue:'',season:'2026'});
+  const [venues,  setVenues]  = useState(defaultVenues);
+  const [seasons, setSeasons] = useState(defaultSeasons);
+  const [form, setForm] = useState({
+    team1: TEAMS[0] || '',
+    team2: TEAMS[1] || '',
+    venue: defaultVenues[0] || '',
+    season: defaultSeasons[0] || '2026'
+  });
   const [result,  setResult]  = useState(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
@@ -57,8 +64,16 @@ export default function Prediction() {
     getTeams().then(r => {
       if (r.data?.current_teams?.length) setTeamList(r.data.current_teams);
     }).catch(() => {});
-    getVenues().then(r => setVenues(r.data.venues)).catch(()=>{});
-    getSeasons().then(r => { const s=r.data.seasons; setSeasons(s); setForm(f=>({...f,season:s[0]||'2026'})); }).catch(()=>{});
+    getVenues().then(r => {
+      if (r.data?.venues?.length) setVenues(r.data.venues);
+    }).catch(()=>{});
+    getSeasons().then(r => {
+      const s = r.data?.seasons;
+      if (s?.length) {
+        setSeasons(s);
+        setForm(f => ({ ...f, season: f.season || s[0] || '2026' }));
+      }
+    }).catch(()=>{});
   }, []);
 
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
@@ -67,8 +82,13 @@ export default function Prediction() {
     if (!form.team1||!form.team2||!form.venue) { setError('Please fill all fields'); return; }
     if (form.team1===form.team2) { setError('Teams must be different'); return; }
     setError(''); setLoading(true); setResult(null);
-    try { const r = await predictWinner({team1:form.team1,team2:form.team2,venue:form.venue,season:form.season}); setResult(r.data); setAnimKey(k=>k+1); }
-    catch { setError('Prediction failed — is the backend running on port 8000?'); }
+    try {
+      const r = await predictWinner({team1:form.team1,team2:form.team2,venue:form.venue,season:form.season});
+      setResult(r.data);
+      setAnimKey(k=>k+1);
+    } catch {
+      setError('Prediction failed — ensure backend is running or waking up (Render free tier wakes in ~30s). Please try again shortly.');
+    }
     setLoading(false);
   };
 

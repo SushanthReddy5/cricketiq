@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Legend } from 'recharts';
 import { getTossAnalysis, getVenues } from '../api';
+import defaultVenues from '../data/venues.json';
+import defaultTossStats from '../data/toss_stats.json';
 
 export default function TossAnalysis() {
-  const [venues, setVenues] = useState([]);
+  const [venues, setVenues] = useState(defaultVenues);
   const [venue, setVenue] = useState('all');
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(defaultTossStats['all'] || null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getVenues().then(r => setVenues(r.data.venues || []));
+    getVenues().then(r => {
+      if (r.data?.venues?.length) setVenues(r.data.venues);
+    }).catch(() => {});
     load('all');
   }, []);
 
@@ -18,8 +22,14 @@ export default function TossAnalysis() {
     setLoading(true);
     try {
       const r = await getTossAnalysis(v);
-      setData(r.data);
-    } catch {}
+      if (r.data && !r.data.error) {
+        setData(r.data);
+      } else {
+        setData(defaultTossStats[v] || defaultTossStats['all']);
+      }
+    } catch {
+      setData(defaultTossStats[v] || defaultTossStats['all']);
+    }
     setLoading(false);
   };
 
