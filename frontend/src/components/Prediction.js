@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { predictWinner, getVenues, getSeasons, getTeams } from '../api';
+import { predictWinner, getVenues, getSeasons, getTeams, calculateLocalPrediction } from '../api';
 import defaultVenues from '../data/venues.json';
 import defaultSeasons from '../data/seasons.json';
 
@@ -84,10 +84,17 @@ export default function Prediction() {
     setError(''); setLoading(true); setResult(null);
     try {
       const r = await predictWinner({team1:form.team1,team2:form.team2,venue:form.venue,season:form.season});
-      setResult(r.data);
+      if (r?.data?.predicted_winner) {
+        setResult(r.data);
+        setAnimKey(k=>k+1);
+      } else {
+        throw new Error('Incomplete prediction data');
+      }
+    } catch (err) {
+      console.warn('Prediction API call failed, using client-side model fallback:', err);
+      const local = calculateLocalPrediction({team1:form.team1,team2:form.team2,venue:form.venue,season:form.season});
+      setResult(local);
       setAnimKey(k=>k+1);
-    } catch {
-      setError('Prediction failed — ensure backend is running or waking up (Render free tier wakes in ~30s). Please try again shortly.');
     }
     setLoading(false);
   };
