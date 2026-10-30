@@ -4,6 +4,7 @@ import defaultSeasons from './data/seasons.json';
 import defaultPlayers from './data/players.json';
 import defaultVenueStats from './data/venue_stats.json';
 import defaultTossStats from './data/toss_stats.json';
+import predictionData from './data/prediction_data.json';
 
 const STORAGE_KEY = 'cricketiq_api_url';
 
@@ -38,7 +39,100 @@ export const checkBackendHealth = async () => {
   }
 };
 
-export const predictWinner = (data) => API.post('/predict', data);
+export const calculateLocalPrediction = ({ team1, team2, venue, season }) => {
+  const sData = predictionData.teams[season] || predictionData.teams['2026'] || {};
+  const t1_f = sData[team1]?.form || { wins: 3, total: 5, form_score: 0.6, streak: 1, results: [true, false, true, true, false] };
+  const t2_f = sData[team2]?.form || { wins: 2, total: 5, form_score: 0.4, streak: -1, results: [false, true, false, true, false] };
+
+  let h2h = predictionData.h2h[`${team1} vs ${team2}`];
+  let t1_w = 0, t2_w = 0, total = 0, h2h_score = 0.5;
+  if (h2h) {
+    t1_w = h2h.t1_wins; t2_w = h2h.t2_wins; total = h2h.total; h2h_score = h2h.h2h_score;
+  } else {
+    h2h = predictionData.h2h[`${team2} vs ${team1}`];
+    if (h2h) {
+      t1_w = h2h.t2_wins; t2_w = h2h.t1_wins; total = h2h.total; h2h_score = 1 - h2h.h2h_score;
+    }
+  }
+
+  const t1_vr = predictionData.venue_rates[team1]?.[venue] || 0.5;
+  const t2_vr = predictionData.venue_rates[team2]?.[venue] || 0.5;
+  const v_stats = defaultVenueStats[venue] || defaultVenueStats[defaultVenues[0]] || {};
+
+  const t1_sq = sData[team1]?.squad || { batting_sr: 135, boundary_pct: 18, bowling_economy: 8.5, dot_pct: 35, top_batters: [], top_bowlers: [] };
+  const t2_sq = sData[team2]?.squad || { batting_sr: 138, boundary_pct: 19, bowling_economy: 8.4, dot_pct: 34, top_batters: [], top_bowlers: [] };
+
+  const form_adv = (t1_f.form_score - t2_f.form_score);
+  const h2h_adv = (h2h_score - 0.5) * 2;
+  const venue_adv = (t1_vr - t2_vr);
+  const squad_bat_adv = (t1_sq.batting_sr - t2_sq.batting_sr) / 40 + (t1_sq.boundary_pct - t2_sq.boundary_pct) / 20;
+  const squad_bowl_adv = (t2_sq.bowling_economy - t1_sq.bowling_economy) / 3 + (t1_sq.dot_pct - t2_sq.dot_pct) / 20;
+  const squad_adv = 0.5 * squad_bat_adv + 0.5 * squad_bowl_adv;
+
+  const net = 0.138 * form_adv + 0.061 * h2h_adv + 0.290 * venue_adv + 0.511 * squad_adv;
+  const p1 = 1 / (1 + Math.exp(-net * 2.2));
+  const t1_prob = +(p1 * 100).toFixed(1);
+  const t2_prob = +((1 - p1) * 100).toFixed(1);
+
+  return {
+    team1, team2, season,
+    team1_win_probability: t1_prob,
+    team2_win_probability: t2_prob,
+    predicted_winner: t1_prob > t2_prob ? team1 : team2,
+    confidence: Math.max(t1_prob, t2_prob),
+    model_accuracy: 52.9,
+    is_offline: true,
+    group_importances: {
+      F4_Squad_Strength: 0.511,
+      F3_Venue_Pitch: 0.290,
+      F1_Team_Form: 0.138,
+      F2_H2H: 0.061
+    },
+    breakdown: {
+      team_form: {
+        team1: t1_f,
+        team2: t2_f,
+        weight: 13.8
+      },
+      head_to_head: {
+        t1_wins: t1_w,
+        t2_wins: t2_w,
+        total,
+        h2h_score: +h2h_score.toFixed(4),
+        team1,
+        team2,
+        weight: 6.1
+      },
+      venue_pitch: {
+        avg_inn1: v_stats.avg_first_innings_total || 165,
+        avg_inn2: 152,
+        venue_chase_rate: (v_stats.chase_win_pct || 50) / 100,
+        toss_bat_win_rate: (v_stats.bat_first_win_pct || 50) / 100,
+        spin_index: 0.46,
+        team1_venue_rate: +(t1_vr * 100).toFixed(1),
+        team2_venue_rate: +(t2_vr * 100).toFixed(1),
+        weight: 29.0
+      },
+      squad_strength: {
+        team1: t1_sq,
+        team2: t2_sq,
+        season,
+        weight: 51.1
+      }
+    }
+  };
+};
+
+export const predictWinner = async (data) => {
+  try {
+    const res = await API.post('/predict', data);
+    if (res.data?.predicted_winner) return res;
+  } catch (err) {
+    console.warn('Backend prediction unavailable, using offline ML breakdown:', err.message);
+  }
+  const local = calculateLocalPrediction(data);
+  return { data: local };
+};
 
 export const getSeasons = async () => {
   try {

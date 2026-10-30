@@ -167,6 +167,17 @@ export default function Prediction() {
             padding:28, textAlign:'center', borderColor:'rgba(0,230,118,0.25)',
             background:'linear-gradient(135deg,rgba(0,230,118,0.06),rgba(0,242,254,0.04))',
           }}>
+            {result.is_offline && (
+              <div style={{ marginBottom: 12 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 50,
+                  background: 'rgba(255, 215, 0, 0.12)', border: '1px solid rgba(255, 215, 0, 0.3)',
+                  color: '#FFD700'
+                }}>
+                  ⚡ Instant 4-Factor Model (Offline Mode)
+                </span>
+              </div>
+            )}
             <div style={{fontSize:12,color:'#64748b',letterSpacing:'0.08em',marginBottom:8}}>Season {result.season} · {result.confidence}% confidence</div>
             <div style={{fontSize:36,fontWeight:900,color:'#fff',marginBottom:4}}>🏆 {result.predicted_winner}</div>
             <div style={{fontSize:13,color:'#64748b'}}>Predicted Winner</div>
